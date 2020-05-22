@@ -3,64 +3,38 @@
     <nav class="navbar is-white topNav">
       <div class="container">
         <div class="navbar-brand">
-          <h1>Activity Planner</h1>
+          <h1>{{ fullAppName }}</h1>
         </div>
       </div>
     </nav>
-    <nav class="navbar is-white">
-      <div class="container">
-        <div class="navbar-menu">
-          <div class="navbar-start">
-            <a class="navbar-item is-active" href="#">Newest</a>
-            <a class="navbar-item" href="#">In Progress</a>
-            <a class="navbar-item" href="#">Finished</a>
-          </div>
-        </div>
-      </div>
-    </nav>
+    <navbar />
     <section class="container">
-      <h1 :title="titleMessage"></h1>
-      <div class="columns">
+      <half-circle-spinner
+        v-if="isLoading"
+        class="spinner"
+        :animation-duration="1000"
+        :size="60"
+        color="#5facff"
+      />
+      <div v-else class="columns">
         <div class="column is-3">
-          <a class="button is-primary is-block is-alt is-large"
-          href="#"
-          @click="toggleAddActivityForm"
-          v-if="this.showActivityForm != true">New Activity</a>
-          <div class="create-form" v-if="showActivityForm">
-            <h2>Create Activity</h2>
-            <form>
-              <div class="field">
-                <label class="label">Title</label>
-                <div class="control">
-                  <input class="input" type="text" placeholder="Read a Book" v-model="activityFormData.title">
-                </div>
-              </div>
-              <div class="field">
-                <label class="label">Note</label>
-                <div class="control">
-                  <textarea class="textarea" name="" id="" cols="30" rows="10" v-model="activityFormData.note" placeholder="Add a note"></textarea>
-                </div>
-              </div>
-              <div class="field is-grouped">
-                <div class="control">
-                  <button class="button is-link" @click.prevent="addNewActivity">Create Activity</button>
-                </div>
-                <div class="control">
-                  <button class="button is-text" @click.prevent="toggleAddActivityForm">Cancel</button>
-                </div>
-              </div>
-            </form>
-          </div>
+          <!-- Activity form -->
+          <activity-create
+            :categories="categories"
+            @addNewActivity="addNewActivity" />
+          <!-- Activity form end -->
         </div>
         <div class="column is-9">
           <div class="box content">
             <activity-item
-            v-for="activity in activities"
-            :key="activity.id"
-            :activity="activity"
-            :user="user"
-            >
-          </activity-item>
+              v-for="activity in activities"
+              :key="activity.id"
+              :activity="activity"
+              :user="user"
+              @activityDeleted="handleActivityDelete"
+            />
+            <div class="activity-lenght">Currently {{ activityLenght }} activities</div>
+            <div class="activity-motivation">{{ activityMotivation }}</div>
           </div>
         </div>
       </div>
@@ -69,74 +43,79 @@
 </template>
 
 <script>
-import ActivityItem from '@/components/ActivityItem'
+import ActivityItem from '@/components/ActivityItem';
+import ActivityCreate from '@/components/ActivityCreate';
+import Navbar from '@/components/Navbar';
+import { HalfCircleSpinner } from 'epic-spinners';
+import { fetchActivities, fetchUser, fetchCategories, postActivity, deleteActivityAPI } from '@/services';
 export default {
   name: 'app',
-  components: { ActivityItem },
+  components: { ActivityItem, ActivityCreate, Navbar, HalfCircleSpinner },
   data() {
     return {
-      message: 'Hello Vue!',
-      titleMessage: 'Title Message Vue!!!!!',
+      creator: 'Mahmoud Tokura',
+      appName: 'Activity Planner',
       isTextDisplayed: true,
-      user: {
-        name: 'Mahmoud Tokura',
-        id: '-Aj34jknvncx98812',
-      },
-      activities: {
-        '1546968934': {
-          id: '1546968934',
-          title: 'Learn Vue.js',
-          notes: 'I started today and it was not good.',
-          progress: 0,
-          category: '1546969049',
-          createdAt: 1546969144391,
-          updatedAt: 1546969144391
-        },
-        '1546969212': {
-          id: '1546969212',
-          title: 'Read Witcher Books',
-          notes: 'These books are super nice',
-          progress: 0,
-          category: '1546969049',
-          createdAt: 1546969144391,
-          updatedAt: 1546969144391
-        }
-      },
-      categories: {
-        '1546969049': {text: 'books'},
-        '1546969225': {text: 'movies'}
-      },
-      showActivityForm: false,
-      activityFormData: {
-        title: '',
-        note: '',
+      user: {},
+      activities: {},
+      categories: {},
+      isLoading: false,
+      errorMessage: '',
+    }
+  },
+  computed: {
+    fullAppName() {
+      return `${this.appName} by ${this.creator}`
+    },
+    activityLenght() {
+      return Object.keys(this.activities).length;
+    },
+    activityMotivation() {
+      if(this.activityLenght && this.activityLenght < 5) {
+        return "Nice to see some activity";
+      } else if (this.activityLenght && this.activityLenght >= 5) { 
+        return "So many activitites! You are going well";
+      } else {
+        return "Obgeni!!! You no get Activity";
       }
     }
   },
+  created() {
+    this.isLoading = true;
+    fetchActivities()
+    .then(response => {
+      this.activities = response
+      this.isLoading = false
+    })
+    .catch(error =>{
+      this.errorMessage = error
+      this.isLoading = false
+    })
+
+    fetchUser()
+    .then(response => {
+      this.users = response
+    })
+    .catch(error =>{
+      this.errorMessage = error
+      this.isLoading = false
+    })
+
+    fetchCategories()
+    .then(response => {
+      this.categories = response
+    })
+    .catch(error =>{
+      this.errorMessage = error
+      this.isLoading = false
+    });
+  },
   methods: {
-    validateActivityForm() {
-      return this.activityFormData.title.length > 0 && this.activityFormData.note.length > 0;
+    addNewActivity(activity) {
+      postActivity(activity)
     },
-    resetActivityForm() {
-      this.activityFormData.title = ''
-    },
-    toggleAddActivityForm() {
-      this.showActivityForm = !this.showActivityForm;
-    },
-    addNewActivity() {
-      if(this.validateActivityForm()) {
-        const newActivity = {
-          title: this.activityFormData.title,
-          notes: this.activityFormData.note,
-          progress: 0,
-          category: '1546969049',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-        this.activities = {...this.activities, newActivity}
-      }
-      this.resetActivityForm()
-      this.toggleAddActivityForm()
+    handleActivityDelete (activity) {
+      deleteActivityAPI(activity)
     }
   }
 }
@@ -213,5 +192,37 @@ html,body {
   .navbar-brand > h1 {
     font-size: 31px;
     padding: 20px;
+  }
+
+  .activity-lenght {
+    display: inline-block;
+  }
+  .activity-motivation {
+    float: right
+  }
+  /* Absolute Center Spinner */
+  .spinner {
+    position: fixed;
+    z-index: 999;
+    overflow: show;
+    margin: auto;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+  }
+
+  /* Transparent Overlay */
+  .spinner:before {
+    content: '';
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(58, 58, 58, 0.5);
   }
 </style>
